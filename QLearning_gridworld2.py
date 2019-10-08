@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 
 class GridWorld(object):
 	"""
-	Create a m * n grid with two magic squares that teleport our agent to a random location.
+	Create a m * n grid.
 	Our agent should be able to find the EXIT which is at the bottom right corner of the grid
 	*state space is all states minus the terminal state
 	*state space plus is all states including the terminal state
 	*action space is a dict mapping of Up, Down, Left, Right across the grid
 	"""
-	def __init__(self, m, n, magicSquares):
+	def __init__(self, m, n, *args, **kwargs):
 		self.grid = np.zeros((m,n)) # set states to zeros
 		self.m = m # rows
 		self.n = n # columns
@@ -18,29 +18,7 @@ class GridWorld(object):
 		self.stateSpacePlus = [i for i in range(self.m*self.n)] # full states
 		self.actionSpace = {'U':-self.m, 'D':self.m, 'L':-1, 'R':1} # U: up one row, D: down one row
 		self.possibleActions = ['U', 'D', 'L', 'R']
-		self.addMagicSquares(magicSquares)
 		self.agentPosition = 0
-
-	def addMagicSquares(self,magicSquares):
-		self.magicSquares = magicSquares
-
-		i = 2
-		for square in magicSquares:
-			"""
-			to know our x,y position
-			"""
-			x = square // self.m
-			y = square % self.n
-			print(i)
-			self.grid[x][y] = i
-			i += 1
-			"""
-			find the destination
-			"""
-			x = magicSquares[square] // self.m
-			y = magicSquares[square] % self.n
-			self.grid[x][y] = i
-			i += 1
 
 	def isTerminalState(self, state):
 		"""
@@ -63,11 +41,15 @@ class GridWorld(object):
 		empty grid is represented by 0
 		occupied grid is represented by 1
 		"""
-		x, y = self.getAgentRowAndColumn()
-		self.grid[x][y] = 0
-		self.agentPosition = state
-		x, y = self.getAgentRowAndColumn()
-		self.grid[x][y] = 1
+		try:
+			x, y = self.getAgentRowAndColumn()
+			self.grid[x][y] = 0
+			self.agentPosition = state
+			x, y = self.getAgentRowAndColumn()
+			self.grid[x][y] = 1
+		except IndexError as IE:
+			print(IE)
+			pass
 	
 	def offGridMove(self, newSate, oldState):
 		"""
@@ -88,14 +70,11 @@ class GridWorld(object):
 
 	def step(self, action):
 		"""
-		agent movements, teleport, inside or going outside grid
-		returns new state, reward, if terminal state and debug info
+		agent movements inside or going outside grid.
+		returns new state, reward, if is terminal state and debug info
 		"""
 		x, y = self.getAgentRowAndColumn()
 		resultingState = self.agentPosition + self.actionSpace[action]
-
-		if resultingState in self.magicSquares.keys():
-			resultingState = self.magicSquares[resultingState]
 
 		reward = -1 if not self.isTerminalState(resultingState) else 0
 
@@ -119,30 +98,21 @@ class GridWorld(object):
 		"""
 		self.agentPosition = 0
 		self.grid = np.zeros((self.m * self.n))
-		self.addMagicSquares(self.magicSquares)
 		return self.agentPosition
 
 	def render(self):
 		"""
 		output our environment to terminal/console for debug
 		"""
-		print('-'*20)
+		print('-'*50)
 		for row in self.grid:
 			for col in row:
 				if col == 0: # empty square
 					print('-', end='\t')
 				elif col ==1: # occupied by agent
 					print('x', end='\t')
-				elif col ==2: # entrance to magic square1
-					print('Ain', end='\t')
-				elif col ==3: # exit of magic square1
-					print('Aout', end='\t')
-				elif col ==4: # entrance to magic square2
-					print('Bin', end='\t')
-				elif col ==5: # exit of magic square2
-					print('Bout', end='\t')
 			print('\n')
-		print('-'*20)
+		print('-'*50)
 
 	def actionSpaceSample(self):
 		"""
@@ -150,18 +120,18 @@ class GridWorld(object):
 		"""
 		return np.random.choice(self.possibleActions)
 
-	def maxAction(self,Q, state, actions):
-		"""
-		return max action of the Q-Learning Algorithm
-		argmax returns the index of the max action
-		"""
-		values = np.array([Q[state, a] for a in actions])
-		action = np.argmax(values)
-		return actions[action]
+def maxAction(Q, state, actions):
+	"""
+	return max action of the Q-Learning Algorithm
+	argmax returns the index of the max action
+	"""
+	values = np.array([Q[state, a] for a in actions])
+	action = np.argmax(values)
+	return actions[action]
 
 def main():
 	magicSquares = {18:54, 63:14}
-	env = GridWorld(9, 9, magicSquares)
+	env = GridWorld(9, 9)
 	ALPHA = 0.1 # learning rate
 	GAMMA = 1.0 # discount factor
 	EPS = 1.0 # epsilon
