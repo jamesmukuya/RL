@@ -5,6 +5,16 @@
       "taskLabel": "task-Reinforcement-Learning",
       "appliesTo": "/",
       "type": "launch"
+    },
+    {
+      "taskLabel": "task-selection_snippet",
+      "appliesTo": "selection_snippet.py",
+      "type": "launch"
+    },
+    {
+      "taskLabel": "task-Reinforcement-Learning",
+      "appliesTo": "/",
+      "type": "launch"
     }
   ]
 }
