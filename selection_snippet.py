@@ -91,3 +91,4 @@ for _ in range(len(x)):
 df['sugg_cost'] = df['_prev_cost'].values + df['recomm_cost'].values
 #print(df)
 
+print(np.random.randint(low=1000,high=2000,size=5))

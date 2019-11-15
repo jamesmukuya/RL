@@ -40,22 +40,23 @@ sched_df = pd.read_excel(sched_path,sep=',')
 
 #LOAD THE REQUIRED COLUMNS
 sched_df = sched_df[['STD DATE','ST TIME','FLT NO', 'DEP', 'ARR', 'ACT J', 'ACT Y','TAIL', 'TYPE']]
+sched_df.columns = [c.replace(' ','_') for c in sched_df.columns]
 
 #DATA CLEANING
 sched_df.fillna(np.nan)
 sched_df.dropna(inplace=True)
 
 #PUT THE CORRECT TYPE COLUMNS AND WORK ON NA values
-sched_df['STD DATE'] = sched_df['STD DATE'].astype(str)
-sched_df['ST TIME'] = sched_df['ST TIME'].astype(int)
-sched_df['ST TIME'] = sched_df['ST TIME'].astype(str)
-sched_df['FLT NO'] = sched_df['FLT NO'].astype(int)
-sched_df['ACT J'] = sched_df['ACT J'].astype(int)
-sched_df['ACT Y'] = sched_df['ACT Y'].astype(int)
+sched_df['STD_DATE'] = sched_df['STD_DATE'].astype(str)
+sched_df['ST_TIME'] = sched_df['ST_TIME'].astype(int)
+sched_df['ST_TIME'] = sched_df['ST_TIME'].astype(str)
+sched_df['FLT_NO'] = sched_df['FLT_NO'].astype(int)
+sched_df['ACT_J'] = sched_df['ACT_J'].astype(int)
+sched_df['ACT_Y'] = sched_df['ACT_Y'].astype(int)
 
 #RECTIFY SOME OF THE ST TIME CELLS WHICH CONTAIN ONLY 2 CHARACTERS
 hr_min_cont = []
-for tm in sched_df['ST TIME']:
+for tm in sched_df['ST_TIME']:
 	if len(tm) < 3:
 		zero_hour = '00'
 		full_time = zero_hour + tm
@@ -76,11 +77,25 @@ for stm2 in hr_min_cont:
 	#print('time ',time_obj)
 
 #NEW ST TIME COLUMN
-sched_df['ST TIME'] = new_times
+sched_df['ST_TIME'] = new_times
 
 #PLACE NEW COLUMN CONTAINING SCHED DEP DATETIME
-sched_df['STD_DATETIME'] = sched_df['STD DATE'].astype(str).map(str)+ ' '+ sched_df['ST TIME'].astype(str)
-#print(sched_df.head())
+sched_df['STD_DATETIME'] = sched_df['STD_DATE'].astype(str).map(str)+ ' '+ sched_df['ST_TIME'].astype(str)
+
+#NEW COLS CONTAINING THE PREVIOUS TOTAL FLIGHT COST AND NEXT FLIGHT COST
+prev_cost = np.random.randint(low=40000,high=60000,size=len(sched_df['FLT_NO'].values))
+curr_cost = np.random.randint(low=1000, high=20000,size=len(sched_df['FLT_NO'].values))
+sched_df['PREV_COST'] = prev_cost
+sched_df['CURR_FLT_COST'] = curr_cost
+sched_df['NEXT_FLT_COST'] = sched_df['PREV_COST'].values + sched_df['CURR_FLT_COST'].values
+#sched_df = sched_df.columns.str.replace(' ','_')
+#TOP 20 FLIGHT COSTS
+COLS = ['STD_DATETIME', 'FLT_NO','ACT_J','ACT_Y', 'TAIL', 'PREV_COST','CURR_FLT_COST']
+cost_df = sched_df[COLS].sort_values('PREV_COST',ascending=False)
+
+#print(cost_df.head())
+
+#print(len(prev_cost))
 ##################################################################################################################
 	# SEPARATE HERE INTO ITS OWN FILE/MODULE
 ##################################################################################################################
@@ -89,6 +104,7 @@ VALID_USERNAME_PASSWORD_PAIRS = [('james','12345'),('susan','12345')]
 page_size = 25
 
 #########################
+
 app = dash.Dash(__name__,assets_folder='static/css')
 
 auth = dash_auth.BasicAuth(
@@ -100,7 +116,7 @@ app.title = 'my app'
 app.layout = html.Div([
 	html.Div(className='flex lg:flex-row md:flex-col',
 	children=[
-		html.Div(id='full-sched-table',className='flex-1 rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
+		html.Div(id='full-sched-table',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 		#style={'flex-direction':'column'},
 		children=[
 			html.Div('Schedule table', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
@@ -156,19 +172,20 @@ app.layout = html.Div([
 				]
 			)	
 				]),
-		html.Div(id='top-cost-table',className='flex-1 rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
+		html.Div(id='top-cost-table',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 			#style={'flex-direction':'column'},
 			children=[
 			html.Div('Top 20 flight costs', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
 			dash_table.DataTable(
 				id='flt-costs',
-				columns=[{"name": i, "id": i,"selectable": True} for i in sched_df.columns],
-				data=sched_df[:20].to_dict('records'),
-				fill_width=True,editable=True, sort_action='native', sort_mode="multi", column_selectable="single",
+				columns=[{"name": i, "id": i,"selectable": True} for i in cost_df.columns],
+				data=cost_df[:20].to_dict('records'),
+				fill_width=True,editable=False, sort_action='native', sort_mode="multi", column_selectable="single",
 				row_selectable="multi", row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
 				style_header={
-					'fontWeight': 'bold'
+					'fontWeight': 'bold',
+					'backgroundColor': '#4299e1'
 				},
 				style_cell={
 					'minWidth': '0px', 'width': '50px', 'maxWidth': '180px',
@@ -184,32 +201,9 @@ app.layout = html.Div([
 					{
 						'if': {'row_index': 'odd'},
 						'backgroundColor': 'rgb(248, 248, 248)'
-					},
-					{
-						'if': {
-							'column_id': 'DEP',
-							'filter_query': '{DEP} eq NBO'
-						},
-						'backgroundColor': '#3D9970',
-						'color': 'white',
-					},
-				],
-				style_cell_conditional=[
-					{'if': {'column_id': 'FLT NO'},
-					'width': '5%'},
-					{'if': {'column_id': 'DEP'},
-					'width': '5%'},
-					{'if':{'column_id':'ARR'},
-					'width':'5%'},
-					{'if':{'column_id':'ACT J'},
-					'width':'5%'},
-					{'if':{'column_id':'ACT Y'},
-					'width':'5%'},
-					{'if':{'column_id':'TAIL'},
-					'width':'5%'},
-					{'if':{'column_id':'TYPE'},
-					'width':'5%'},
-				]
+					}
+					],
+				
 			)	
 				])
 		])
