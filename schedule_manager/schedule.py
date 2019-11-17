@@ -45,6 +45,8 @@ sched_df.columns = [c.replace(' ','_') for c in sched_df.columns]
 #DATA CLEANING
 sched_df.fillna(np.nan)
 sched_df.dropna(inplace=True)
+#should reset the index after dropping na else the indices still reflect the earlier ones
+sched_df.reset_index(inplace=True)
 
 #PUT THE CORRECT TYPE COLUMNS AND WORK ON NA values
 sched_df['STD_DATE'] = sched_df['STD_DATE'].astype(str)
@@ -54,6 +56,8 @@ sched_df['FLT_NO'] = sched_df['FLT_NO'].astype(int)
 sched_df['ACT_J'] = sched_df['ACT_J'].astype(int)
 sched_df['ACT_Y'] = sched_df['ACT_Y'].astype(int)
 
+SCHED_COLS = ['STD_DATE', 'ST_TIME','FLT_NO','DEP', 'ARR','ACT_J','ACT_Y','TAIL', 'TYPE']
+schedule_df = sched_df[SCHED_COLS]
 #RECTIFY SOME OF THE ST TIME CELLS WHICH CONTAIN ONLY 2 CHARACTERS
 hr_min_cont = []
 for tm in sched_df['ST_TIME']:
@@ -83,19 +87,109 @@ sched_df['ST_TIME'] = new_times
 sched_df['STD_DATETIME'] = sched_df['STD_DATE'].astype(str).map(str)+ ' '+ sched_df['ST_TIME'].astype(str)
 
 #NEW COLS CONTAINING THE PREVIOUS TOTAL FLIGHT COST AND NEXT FLIGHT COST
-prev_cost = np.random.randint(low=40000,high=60000,size=len(sched_df['FLT_NO'].values))
-curr_cost = np.random.randint(low=1000, high=20000,size=len(sched_df['FLT_NO'].values))
+prev_cost = np.random.uniform(low=40000.0,high=60000.0,size=len(sched_df['FLT_NO'].values)).tolist()
+curr_cost = np.random.uniform(low=1000.0, high=20000.0,size=len(sched_df['FLT_NO'].values)).tolist()
 sched_df['PREV_COST'] = prev_cost
 sched_df['CURR_FLT_COST'] = curr_cost
 sched_df['NEXT_FLT_COST'] = sched_df['PREV_COST'].values + sched_df['CURR_FLT_COST'].values
-#sched_df = sched_df.columns.str.replace(' ','_')
-#TOP 20 FLIGHT COSTS
-COLS = ['STD_DATETIME', 'FLT_NO','ACT_J','ACT_Y', 'TAIL', 'PREV_COST','CURR_FLT_COST']
-cost_df = sched_df[COLS].sort_values('PREV_COST',ascending=False)
 
-#print(cost_df.head())
 
-#print(len(prev_cost))
+#SOLN PROPOSAL
+asc_row_number = [] # row numbers for prev cost from highest to lowest
+desc_row_number = [] # row numbers for curr cost from lowest to highest
+
+sched_df['_prev_cost'] = prev_cost
+sched_df['_curr_cost'] = curr_cost
+# iterate over the dataframe
+for _ in sched_df['PREV_COST'].values:	
+	# iterate over the original previous cost list
+	for j in prev_cost:
+		# find the max value of the previous cost
+		r = np.max(prev_cost)
+		# get DataFrame row info. of the max value
+		row_info_max = sched_df.loc[sched_df['PREV_COST'].values==r]
+		# get DataFrame row number of the max value from row info
+		row_numb_max = row_info_max.index.values.astype(int)[0]
+		# set the cell data to Nan to prevent any dubplicated row numbers
+		if row_numb_max in asc_row_number:
+			#print(row_numb_max,'already present')
+			sched_df.at[row_numb_max,'PREV_COST'] = np.nan
+
+		if r == j:
+			# if value of the row is max, append its number in the container
+			asc_row_number.append(row_numb_max)
+			# remove the max number from the previous cost list
+			prev_cost.remove(r)
+
+for _ in sched_df['CURR_FLT_COST'].values:	
+	# iterate over the original previous cost list
+	for j in curr_cost:
+		# find the max value of the previous cost
+		r = np.min(curr_cost)
+		# get DataFrame row info. of the max value
+		row_info_min = sched_df.loc[sched_df['CURR_FLT_COST'].values==r]
+		# get DataFrame row number of the max value from row info
+		row_numb_min = row_info_min.index.values.astype(int)[0]
+
+		# set the cell data to Nan to prevent any dubplicated row numbers
+		if row_numb_min in desc_row_number:
+			#print(row_numb_max,'already present')
+			sched_df.at[row_numb_min,'CURR_FLT_COST'] = np.nan
+		if r == j:
+			# if value of the row is min, append its number in the container
+			desc_row_number.append(row_numb_min)
+			# remove the max number from the previous cost list
+			curr_cost.remove(r)
+			
+# PREPARED FLT NO
+soln_flt_rte = []
+soln_flt_num = []
+for row_num in desc_row_number:
+	try:
+		new_dep_data = sched_df.iloc[row_num]['DEP']
+		new_arr_data = sched_df.iloc[row_num]['ARR']
+		new_flt_no = sched_df.iloc[row_num]['FLT_NO']
+		new_rte = new_dep_data +'-'+ new_arr_data
+		soln_flt_rte.append(new_rte)
+		soln_flt_num.append(new_flt_no)
+	except IndexError as e:
+		# do something before production
+		pass
+#print(soln_flt_details[:5])
+# create columns for recommended and suggested costs
+sched_df['recomm_cost'] = np.nan
+# for all row numbers in desc and asc row number, insert the value of the min to the row of max
+x = list(zip(desc_row_number,asc_row_number))
+#print(x[1][0])
+
+for index in range(len(x)):
+	try:
+		recomm_val = sched_df.iloc[x[index][0]]._curr_cost
+		sched_df.at[x[index][1],'recomm_cost'] = recomm_val
+		
+	except IndexError as IE:
+		#print('<<ERROR at:>>', x[index][0],x[index][1],sched_df.iloc[x[index][1]])
+		pass
+
+# create col with the best value
+sched_df['sugg_cost'] = sched_df['_prev_cost'].values + sched_df['recomm_cost'].values
+
+#INITIAL FLT NO AND ROUTE
+sched_df['RTE'] = sched_df['DEP']+'-'+sched_df['ARR']
+sched_df['PROP_RTE'] = soln_flt_rte
+sched_df['PROP_FLT_NO'] = soln_flt_num
+
+#TOP FLIGHT COSTS
+COST_COLS = ['STD_DATETIME', 'FLT_NO','ACT_J','ACT_Y', 'TAIL', 'PREV_COST','CURR_FLT_COST','RTE']
+cost_df = sched_df[COST_COLS].sort_values('PREV_COST',ascending=False)
+
+# SOLN PLAN DF
+# check on dep times next
+SOLN_COLS = ['FLT_NO','RTE','PROP_FLT_NO', 'PROP_RTE','CURR_FLT_COST','recomm_cost']
+soln_df = sched_df[SOLN_COLS]
+
+#print(soln_df[:20])
+
 ##################################################################################################################
 	# SEPARATE HERE INTO ITS OWN FILE/MODULE
 ##################################################################################################################
@@ -103,7 +197,7 @@ VALID_USERNAME_PASSWORD_PAIRS = [('james','12345'),('susan','12345')]
 # table page size
 page_size = 25
 
-#########################
+##################################################################################################################
 
 app = dash.Dash(__name__,assets_folder='static/css')
 
@@ -111,7 +205,7 @@ auth = dash_auth.BasicAuth(
     app,
     VALID_USERNAME_PASSWORD_PAIRS
 )
-app.title = 'my app'
+app.title = 'Schedule manager'
 #flex-1 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl 
 app.layout = html.Div([
 	html.Div(className='flex lg:flex-row md:flex-col',
@@ -122,8 +216,8 @@ app.layout = html.Div([
 			html.Div('Schedule table', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
 			dash_table.DataTable(
 				id='schedule',
-				columns=[{"name": i, "id": i,"selectable": True} for i in sched_df.columns],
-				data=sched_df.to_dict('records'),
+				columns=[{"name": i, "id": i,"selectable": True} for i in schedule_df.columns],
+				data=schedule_df.to_dict('records'),
 				fill_width=True,editable=True, sort_action='native', sort_mode="multi", column_selectable="single",
 				row_selectable="multi", row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
@@ -131,10 +225,12 @@ app.layout = html.Div([
 					'fontWeight': 'bold'
 				},
 				style_cell={
+					'height':'auto',
 					'minWidth': '0px', 'width': '50px', 'maxWidth': '180px',
 					'overflow': 'hidden',
 					'textOverflow': 'ellipsis',
-					'textAlign':'left'
+					'textAlign':'left',
+					#'whiteSpace':'normal',
 				},
 				style_table={
 					'overflowX':'scroll',
@@ -154,22 +250,6 @@ app.layout = html.Div([
 						'color': 'white',
 					},
 				],
-				style_cell_conditional=[
-					{'if': {'column_id': 'FLT NO'},
-					'width': '5%'},
-					{'if': {'column_id': 'DEP'},
-					'width': '5%'},
-					{'if':{'column_id':'ARR'},
-					'width':'5%'},
-					{'if':{'column_id':'ACT J'},
-					'width':'5%'},
-					{'if':{'column_id':'ACT Y'},
-					'width':'5%'},
-					{'if':{'column_id':'TAIL'},
-					'width':'5%'},
-					{'if':{'column_id':'TYPE'},
-					'width':'5%'},
-				]
 			)	
 				]),
 		html.Div(id='top-cost-table',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
@@ -181,7 +261,7 @@ app.layout = html.Div([
 				columns=[{"name": i, "id": i,"selectable": True} for i in cost_df.columns],
 				data=cost_df[:20].to_dict('records'),
 				fill_width=True,editable=False, sort_action='native', sort_mode="multi", column_selectable="single",
-				row_selectable="multi", row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
+				row_selectable=False, row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
 				style_header={
 					'fontWeight': 'bold',
@@ -189,6 +269,45 @@ app.layout = html.Div([
 				},
 				style_cell={
 					'minWidth': '0px', 'width': '50px', 'maxWidth': '180px',
+					'overflow': 'hidden',
+					'textOverflow': 'ellipsis',
+					'textAlign':'left',
+					#'whiteSpace':'normal',
+				},
+				style_table={
+					'overflowX':'scroll',
+					'maxHeight':'600px',
+				},
+				style_data_conditional=[
+					{
+						'if': {'row_index': 'odd'},
+						'backgroundColor': 'rgb(248, 248, 248)'
+					}
+					],
+				
+			)	
+				]),
+		# new div here
+		]),
+	# new div here
+	html.Div(className='flex lg:flex-row md:flex-col', children=[
+		html.Div(id='soln-plan-div',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
+			#style={'flex-direction':'column'},
+			children=[
+			html.Div('Solution Plan', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
+			dash_table.DataTable(
+				id='soln-plan-table',
+				columns=[{"name": i, "id": i,"selectable": True} for i in soln_df.columns],
+				data=soln_df.to_dict('records'),
+				fill_width=True,editable=False, sort_action='native', sort_mode="multi", column_selectable="single",
+				row_selectable="multi", row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
+				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
+				style_header={
+					'fontWeight': 'bold',
+					'backgroundColor': '#4299e1'
+				},
+				style_cell={
+					'minWidth': '0px','width':'7%','maxWidth': '180px',
 					'overflow': 'hidden',
 					'textOverflow': 'ellipsis',
 					'textAlign':'left'
@@ -205,9 +324,9 @@ app.layout = html.Div([
 					],
 				
 			)	
-				])
-		])
-	
+				]),
+	])
+		
 	])	
 
 
