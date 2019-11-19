@@ -18,6 +18,9 @@ import dash_table
 import dash_auth
 import dash_core_components as dcc
 import dash_html_components as html
+
+#plotly imports
+import plotly.graph_objects as go
 ####################################################################################################
 #SET PANDAS OPTIONS FOR DISPLAY
 pd.set_option('display.max_rows',1000)
@@ -53,8 +56,15 @@ sched_df['STD_DATE'] = sched_df['STD_DATE'].astype(str)
 sched_df['ST_TIME'] = sched_df['ST_TIME'].astype(int)
 sched_df['ST_TIME'] = sched_df['ST_TIME'].astype(str)
 sched_df['FLT_NO'] = sched_df['FLT_NO'].astype(int)
+sched_df['FLT_NO'] = sched_df['FLT_NO'].astype(str)
 sched_df['ACT_J'] = sched_df['ACT_J'].astype(int)
 sched_df['ACT_Y'] = sched_df['ACT_Y'].astype(int)
+
+flt_no = []
+for k in sched_df['FLT_NO']:
+	flt='a' + k
+	flt_no.append(flt)
+sched_df['FLT_NO'] = flt_no
 
 SCHED_COLS = ['STD_DATE', 'ST_TIME','FLT_NO','DEP', 'ARR','ACT_J','ACT_Y','TAIL', 'TYPE']
 schedule_df = sched_df[SCHED_COLS]
@@ -217,7 +227,7 @@ app.layout = html.Div([
 			dash_table.DataTable(
 				id='schedule',
 				columns=[{"name": i, "id": i,"selectable": True} for i in schedule_df.columns],
-				data=schedule_df.to_dict('records'),
+				data=schedule_df.to_dict(orient='records'),
 				fill_width=True,editable=True, sort_action='native', sort_mode="multi", column_selectable="single",
 				row_selectable="multi", row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
@@ -294,7 +304,7 @@ app.layout = html.Div([
 		html.Div(id='soln-plan-div',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 			#style={'flex-direction':'column'},
 			children=[
-			html.Div('Solution Plan', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
+			html.Div('Solution Plan: Pre-plan', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
 			dash_table.DataTable(
 				id='soln-plan-table',
 				columns=[{"name": i, "id": i,"selectable": True} for i in soln_df.columns],
@@ -325,6 +335,32 @@ app.layout = html.Div([
 				
 			)	
 				]),
+		html.Div(id='cost-graph-div',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
+		children=[
+			html.Div('Current vs Recommended cost',className='text-blue font-bold rounded-t px-4 py-2'),
+			html.Div([
+				dcc.Graph(id='cost-graph',
+				figure={
+					'data':[go.Scatter(
+							x = [i for i in pd.unique(sched_df['FLT_NO'].to_numpy())],
+							y = [j for j in soln_df['CURR_FLT_COST'].to_numpy()],
+							mode='lines',
+							name='current cost'
+						),
+							go.Scatter(
+							x=[i for i in pd.unique(sched_df['FLT_NO'].to_numpy())],
+							y=[j for j in soln_df['recomm_cost'].to_numpy()],
+							mode='lines',
+							name='recommended cost'
+							)],
+					'layout':go.Layout(
+						autosize=False,
+						width=800,
+						height=600
+					)
+				})
+			])
+		])
 	])
 		
 	])	
