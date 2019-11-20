@@ -67,9 +67,6 @@ for k in sched_df['FLT_NO']:
 	flt_no.append(flt)
 sched_df['FLT_NO'] = flt_no
 
-SCHED_COLS = ['STD_DATE', 'ST_TIME','FLT_NO','DEP', 'ARR','ACT_J','ACT_Y','TAIL', 'TYPE']
-schedule_df = sched_df[SCHED_COLS]
-
 #RECTIFY SOME OF THE ST TIME CELLS WHICH CONTAIN ONLY 2 CHARACTERS
 hr_min_cont = []
 for tm in sched_df['ST_TIME']:
@@ -189,6 +186,11 @@ sched_df['sugg_cost'] = sched_df['_prev_cost'].values + sched_df['recomm_cost'].
 sched_df['RTE'] = sched_df['DEP']+'-'+sched_df['ARR']
 sched_df['PROP_RTE'] = soln_flt_rte
 sched_df['PROP_FLT_NO'] = soln_flt_num
+sched_df = sched_df.round({'PREV_COST':2,'CURR_FLT_COST':2,'recomm_cost':2})
+
+#FULL SCHEDULE
+SCHED_COLS = ['STD_DATE', 'ST_TIME','FLT_NO','DEP', 'ARR','ACT_J','ACT_Y','TAIL', 'TYPE']
+schedule_df = sched_df[SCHED_COLS]
 
 #TOP FLIGHT COSTS
 COST_COLS = ['STD_DATETIME', 'FLT_NO','ACT_J','ACT_Y', 'TAIL', 'PREV_COST','CURR_FLT_COST','RTE']
@@ -197,8 +199,9 @@ cost_df = sched_df_nbo[COST_COLS].sort_values('PREV_COST',ascending=False)
 
 # SOLN PLAN DF
 # check on dep times next
-SOLN_COLS = ['FLT_NO','RTE','STD_DATETIME','PROP_FLT_NO', 'PROP_RTE','CURR_FLT_COST','recomm_cost']
+SOLN_COLS = ['TAIL','RTE','STD_DATETIME','PROP_FLT_NO', 'PROP_RTE','CURR_FLT_COST','recomm_cost']
 soln_df = sched_df_nbo[SOLN_COLS]
+soln_df.round({'CURR_FLT_COST':2,'recomm_cost':2})
 soln_df = soln_df.loc[soln_df['PROP_RTE'].str.startswith('NBO')]
 
 x_data = [i for i in pd.unique(sched_df_nbo['FLT_NO'].to_numpy())]
@@ -211,6 +214,9 @@ VALID_USERNAME_PASSWORD_PAIRS = [('james','12345'),('susan','12345')]
 # table page size
 page_size = 25
 
+min_date = sched_df['STD_DATETIME'].min()
+max_date = sched_df['STD_DATETIME'].max()
+#print(min_date,max_date)
 ##################################################################################################################
 
 app = dash.Dash(__name__,assets_folder='static/css')
@@ -227,7 +233,8 @@ app.layout = html.Div([
 		html.Div(id='full-sched-table',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 		#style={'flex-direction':'column'},
 		children=[
-			html.Div('Schedule table', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
+			html.Div('Schedule table', className='text-blue font-bold rounded-t px-4 py-2'),
+			html.Div(f'From {min_date} To {max_date}', className='text-indigo font-bold rounded-t px-4 py-2'),
 			dash_table.DataTable(
 				id='schedule',
 				columns=[{"name": i, "id": i,"selectable": True} for i in schedule_df.columns],
@@ -235,6 +242,9 @@ app.layout = html.Div([
 				fill_width=True,editable=True, sort_action='native', sort_mode="multi", column_selectable="single",
 				row_selectable="multi", row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
+				css=[{'selector':'.previous-page','rule':'background-color:#e2e8f0;border-radius: .25rem;'},
+					{'selector':'.next-page','rule':'background-color:#90cdf4; margin: 0.5rem; border-radius: .25rem;'},
+					],
 				style_header={
 					'fontWeight': 'bold',
 					'fill_width':False,
@@ -270,7 +280,8 @@ app.layout = html.Div([
 		html.Div(id='top-cost-table',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 			#style={'flex-direction':'column'},
 			children=[
-			html.Div('Top 20 costs ex NBO', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
+			html.Div('Top 20 costs ex NBO.', className='text-blue font-bold rounded-t px-4 py-2'),
+			html.Div(f'From {min_date} To {max_date}', className='text-indigo font-bold rounded-t px-4 py-2'),
 			dash_table.DataTable(
 				id='flt-costs',
 				columns=[{"name": i, "id": i,"selectable": True} for i in cost_df.columns],
@@ -278,6 +289,9 @@ app.layout = html.Div([
 				fill_width=True,editable=False, sort_action='native', sort_mode="multi", column_selectable="single",
 				row_selectable=False, row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
+				css=[{'selector':'.previous-page','rule':'background-color:#e2e8f0;border-radius: .25rem;'},
+					{'selector':'.next-page','rule':'background-color:#90cdf4; margin: 0.5rem; border-radius: .25rem;'},
+					],
 				style_header={
 					'fontWeight': 'bold',
 					'backgroundColor': '#4299e1'
@@ -297,6 +311,11 @@ app.layout = html.Div([
 					{
 						'if': {'row_index': 'odd'},
 						'backgroundColor': 'rgb(248, 248, 248)'
+					},
+					{
+						'if': {'column_id': 'PREV_COST'},
+						'backgroundColor': '#fc8181',
+						'color': 'white',
 					}
 					],
 				
@@ -309,12 +328,13 @@ app.layout = html.Div([
 		html.Div(id='soln-plan-div',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 			#style={'flex-direction':'column'},
 			children=[
-			html.Div('Solution Plan: Pre-plan', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
+			html.Div('Solution Plan: Pre-plan.', className='text-blue font-bold rounded-t px-4 py-2'),
+			html.Div(f'From {min_date} To {max_date}', className='text-indigo font-bold rounded-t px-4 py-2'),
 			dash_table.DataTable(
 				id='soln-plan-table',
 				columns=[{"name": i, "id": i,"selectable": True} for i in soln_df.columns],
 				data=soln_df.to_dict('records'),
-				fill_width=False,editable=False, sort_action='native', sort_mode="multi", column_selectable="single",
+				fill_width=True,editable=False, sort_action='native', sort_mode="multi", column_selectable="single",
 				row_selectable=False, row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
 				css=[{'selector':'.previous-page','rule':'background-color:#e2e8f0;border-radius: .25rem;'},
@@ -349,7 +369,8 @@ app.layout = html.Div([
 				]),
 		html.Div(id='cost-graph-div',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 		children=[
-			html.Div('Current vs Recommended cost',className='text-blue font-bold rounded-t px-4 py-2'),
+			html.Div('Current vs Recommended cost.',className='text-blue font-bold rounded-t px-4 py-2'),
+			html.Div(f'From {min_date} To {max_date}', className='text-indigo font-bold rounded-t px-4 py-2'),
 			html.Div([
 				dcc.Graph(id='cost-graph',
 				figure={
@@ -400,48 +421,7 @@ def update_output_div(something):
 
 	return 'You\'ve entered "{}"'.format(input_value)
 
-"""
-callback not working
-@app.callback(Output('cost-graph','figure'))
-def draw_graph():
 
-	traces = []
-	x = [i for i in pd.unique(sched_df_nbo['FLT_NO'].to_numpy())]
-	charts = [go.Scatter(
-							x = x,
-							y = [j for j in soln_df['CURR_FLT_COST'].to_numpy()],
-							mode='lines',
-							name='current cost'
-						),
-				go.Scatter(
-							x=x,
-							y=[j for j in soln_df['recomm_cost'].to_numpy()],
-							mode='lines',
-							name='recommended cost'
-							)
-			]
-	for chart in charts:
-		traces.append(chart)
-		print(traces)
-
-	return {
-		'data': [chart for chart in charts],
-		'layout':go.Layout(
-					autosize=False,
-					width=800,
-					height=600,
-					legend={
-						'orientation':'h',
-						'yanchor':'top'
-					},
-					margin={
-						'r':2
-					},
-					paper_bgcolor='#ebf8ff',
-					plot_bgcolor='#ebf8ff'
-				)
-			}
-"""
 
 
 def main():
