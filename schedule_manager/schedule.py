@@ -18,6 +18,7 @@ import dash_table
 import dash_auth
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dependencies import Output, Input
 
 #plotly imports
 import plotly.graph_objects as go
@@ -68,6 +69,7 @@ sched_df['FLT_NO'] = flt_no
 
 SCHED_COLS = ['STD_DATE', 'ST_TIME','FLT_NO','DEP', 'ARR','ACT_J','ACT_Y','TAIL', 'TYPE']
 schedule_df = sched_df[SCHED_COLS]
+
 #RECTIFY SOME OF THE ST TIME CELLS WHICH CONTAIN ONLY 2 CHARACTERS
 hr_min_cont = []
 for tm in sched_df['ST_TIME']:
@@ -101,8 +103,7 @@ prev_cost = np.random.uniform(low=40000.0,high=60000.0,size=len(sched_df['FLT_NO
 curr_cost = np.random.uniform(low=1000.0, high=20000.0,size=len(sched_df['FLT_NO'].values)).tolist()
 sched_df['PREV_COST'] = prev_cost
 sched_df['CURR_FLT_COST'] = curr_cost
-sched_df['NEXT_FLT_COST'] = sched_df['PREV_COST'].values + sched_df['CURR_FLT_COST'].values
-
+sched_df['NEXT_FLT_COST'] = sched_df['PREV_COST'].to_numpy() + sched_df['CURR_FLT_COST'].to_numpy()
 
 #SOLN PROPOSAL
 asc_row_number = [] # row numbers for prev cost from highest to lowest
@@ -191,13 +192,16 @@ sched_df['PROP_FLT_NO'] = soln_flt_num
 
 #TOP FLIGHT COSTS
 COST_COLS = ['STD_DATETIME', 'FLT_NO','ACT_J','ACT_Y', 'TAIL', 'PREV_COST','CURR_FLT_COST','RTE']
-cost_df = sched_df[COST_COLS].sort_values('PREV_COST',ascending=False)
+sched_df_nbo = sched_df.loc[sched_df['DEP'].to_numpy()=='NBO']
+cost_df = sched_df_nbo[COST_COLS].sort_values('PREV_COST',ascending=False)
 
 # SOLN PLAN DF
 # check on dep times next
-SOLN_COLS = ['FLT_NO','RTE','PROP_FLT_NO', 'PROP_RTE','CURR_FLT_COST','recomm_cost']
-soln_df = sched_df[SOLN_COLS]
+SOLN_COLS = ['FLT_NO','RTE','STD_DATETIME','PROP_FLT_NO', 'PROP_RTE','CURR_FLT_COST','recomm_cost']
+soln_df = sched_df_nbo[SOLN_COLS]
+soln_df = soln_df.loc[soln_df['PROP_RTE'].str.startswith('NBO')]
 
+x_data = [i for i in pd.unique(sched_df_nbo['FLT_NO'].to_numpy())]
 #print(soln_df[:20])
 
 ##################################################################################################################
@@ -232,7 +236,8 @@ app.layout = html.Div([
 				row_selectable="multi", row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
 				style_header={
-					'fontWeight': 'bold'
+					'fontWeight': 'bold',
+					'fill_width':False,
 				},
 				style_cell={
 					'height':'auto',
@@ -265,7 +270,7 @@ app.layout = html.Div([
 		html.Div(id='top-cost-table',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 			#style={'flex-direction':'column'},
 			children=[
-			html.Div('Top 20 flight costs', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
+			html.Div('Top 20 costs ex NBO', className='bg-red-500 text-blue font-bold rounded-t px-4 py-2'),
 			dash_table.DataTable(
 				id='flt-costs',
 				columns=[{"name": i, "id": i,"selectable": True} for i in cost_df.columns],
@@ -309,21 +314,28 @@ app.layout = html.Div([
 				id='soln-plan-table',
 				columns=[{"name": i, "id": i,"selectable": True} for i in soln_df.columns],
 				data=soln_df.to_dict('records'),
-				fill_width=True,editable=False, sort_action='native', sort_mode="multi", column_selectable="single",
-				row_selectable="multi", row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
+				fill_width=False,editable=False, sort_action='native', sort_mode="multi", column_selectable="single",
+				row_selectable=False, row_deletable=False, selected_columns=[], selected_rows=[], page_action="native",
 				page_size = page_size, page_current= 0, fixed_rows={ 'headers': True, 'data': 0 }, 
+				css=[{'selector':'.previous-page','rule':'background-color:#e2e8f0;border-radius: .25rem;'},
+					{'selector':'.next-page','rule':'background-color:#90cdf4; margin: 0.5rem; border-radius: .25rem;'},
+					],
 				style_header={
 					'fontWeight': 'bold',
-					'backgroundColor': '#4299e1'
+					'backgroundColor': '#4299e1',
+					'whiteSpace':'normal',
+					#'width':'7%'
 				},
 				style_cell={
-					'minWidth': '0px','width':'7%','maxWidth': '180px',
+					'minWidth': '0px','maxWidth': '180px',
 					'overflow': 'hidden',
-					'textOverflow': 'ellipsis',
-					'textAlign':'left'
+					#'textOverflow': 'ellipsis',
+					'textAlign':'left',
+					'whiteSpace':'normal',
+					#'height':'auto'
 				},
 				style_table={
-					'overflowX':'scroll',
+					'overflowX':'scroll', 'overflowY':'scroll',
 					'maxHeight':'600px',
 				},
 				style_data_conditional=[
@@ -342,13 +354,13 @@ app.layout = html.Div([
 				dcc.Graph(id='cost-graph',
 				figure={
 					'data':[go.Scatter(
-							x = [i for i in pd.unique(sched_df['FLT_NO'].to_numpy())],
+							x = x_data,
 							y = [j for j in soln_df['CURR_FLT_COST'].to_numpy()],
 							mode='lines',
 							name='current cost'
 						),
 							go.Scatter(
-							x=[i for i in pd.unique(sched_df['FLT_NO'].to_numpy())],
+							x=x_data,
 							y=[j for j in soln_df['recomm_cost'].to_numpy()],
 							mode='lines',
 							name='recommended cost'
@@ -356,23 +368,89 @@ app.layout = html.Div([
 					'layout':go.Layout(
 						autosize=False,
 						width=800,
-						height=600
+						height=600,
+						legend={
+							'orientation':'h',
+							'yanchor':'top'
+						},
+						margin={
+							'r':2
+						},
+						paper_bgcolor='#ebf8ff',
+						plot_bgcolor='#ebf8ff'
 					)
 				})
-			])
+			]),
+			html.Hr(),
+			html.Div(id='none',children=[],style={'display': 'none'}),
+    		html.Div(id='my-div')
 		])
 	])
 		
-	])	
+])	
+
+@app.callback(
+    Output(component_id='my-div', component_property='children'),
+    [Input(component_id='none', component_property='children')]
+)
+def update_output_div(something):
+	# you can put anything in the fxn. no need of providing pos arg to it
+	# for now we place a hidden empty div without any children in order to have it in the callback
+	input_value='nothing'
+
+	return 'You\'ve entered "{}"'.format(input_value)
+
+"""
+callback not working
+@app.callback(Output('cost-graph','figure'))
+def draw_graph():
+
+	traces = []
+	x = [i for i in pd.unique(sched_df_nbo['FLT_NO'].to_numpy())]
+	charts = [go.Scatter(
+							x = x,
+							y = [j for j in soln_df['CURR_FLT_COST'].to_numpy()],
+							mode='lines',
+							name='current cost'
+						),
+				go.Scatter(
+							x=x,
+							y=[j for j in soln_df['recomm_cost'].to_numpy()],
+							mode='lines',
+							name='recommended cost'
+							)
+			]
+	for chart in charts:
+		traces.append(chart)
+		print(traces)
+
+	return {
+		'data': [chart for chart in charts],
+		'layout':go.Layout(
+					autosize=False,
+					width=800,
+					height=600,
+					legend={
+						'orientation':'h',
+						'yanchor':'top'
+					},
+					margin={
+						'r':2
+					},
+					paper_bgcolor='#ebf8ff',
+					plot_bgcolor='#ebf8ff'
+				)
+			}
+"""
 
 
-
-
-
+def main():
+	app.run_server(debug=True)
 
 
 
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    main()
+	
