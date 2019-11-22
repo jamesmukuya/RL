@@ -228,7 +228,7 @@ auth = dash_auth.BasicAuth(
 app.title = 'Schedule manager'
 #flex-1 max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl 
 app.layout = html.Div([
-	html.Div(className='flex lg:flex-row md:flex-col',
+	html.Div(className='flex lg:flex-row md:flex-col',style={'background-color': '#efefef'},
 	children=[
 		html.Div(id='full-sched-table',className='flex-auto rounded overflow-hidden shadow-lg px-4 py-2 mx-1 my-1',
 		#style={'flex-direction':'column'},
@@ -264,7 +264,7 @@ app.layout = html.Div([
 				style_data_conditional=[
 					{
 						'if': {'row_index': 'odd'},
-						'backgroundColor': 'rgb(248, 248, 248)'
+						'backgroundColor': '#cbd5e0'
 					},
 					{
 						'if': {
@@ -316,6 +316,10 @@ app.layout = html.Div([
 						'if': {'column_id': 'PREV_COST'},
 						'backgroundColor': '#fc8181',
 						'color': 'white',
+					},
+					{
+						'if':{'column_id':'STD_DATETIME'},
+						'column_type':'datetime'
 					}
 					],
 				
