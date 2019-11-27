@@ -1,0 +1,35 @@
+.parent-grid{
+	display: grid;
+	grid-template-columns: 10rem 1fr;
+}
+
+.equip-nav{
+	display: grid;
+	grid-auto-rows: 4rem;
+}
+
+.equip-nav div:nth-child(even) {
+	background-color: #cbd5e0;
+}
+
+.main-plot{
+	display: grid;
+	grid-template-columns: repeat(auto-fill, 0.25rem);
+	grid-auto-columns: 0.25rem;
+	grid-auto-rows: 4rem;
+}
+
+.timebtn{
+	display: flex;
+	align-items: center;
+	height: 1rem;
+	border-width: 1px;
+	border-color: black;
+	color:blanchedalmond;
+	font-size: .75rem;
+	background-color: #718096;
+}
+.timebtn:nth-child(even) {
+	color:black;
+	background-color: #a0aec0;
+}
