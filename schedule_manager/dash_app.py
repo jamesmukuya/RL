@@ -35,7 +35,7 @@ app.layout = html.Div(id='main-bg',className='bg-gray-200',children=[
 	html.Div(id='relative-parent',className='parent-grid rounded shadow-lg mx-1 bg-gray-500 mt-1 mb-2 border border-black h-full w-full',
 	children=[
 		html.Div(id='equip-nav',className='equip-nav bg-gray-300 px-1 mt-0 border border-black h-full'),
-		html.Div(id='main-plot',className='main-plot bg-blue-500 mt-0 border border-black h-full overflow-scroll overflow-hidden')
+		html.Div(id='main-plot',className='main-plot can-scale bg-blue-500 mt-0 border border-black h-full overflow-scroll overflow-hidden')
 	]),
 	
 ])
@@ -45,36 +45,42 @@ app.layout = html.Div(id='main-bg',className='bg-gray-200',children=[
 @app.callback(Output('equip-nav','children'),
 [Input('none','children')])
 def insert_equip(tail):
-	tails=['','5a','5b','5c','5d','5e']
-	btns=[]
+	tails=['na','5a','5b','5c','5d','5e']
+	tail=[]
 	# looping over planned sched
-	for btn in tails:
-		btns.append(html.Div(html.Button(btn,id=btn)))
+	for reg in tails:
+		if reg=="" or reg=='na':
+			tail.append(html.Div(html.Button()))
+		else:
+			tail.append(html.Div(id='tail-'+ reg, children=[dcc.Checklist(id=reg,
+			options=[
+				{'label':reg,'value':reg}
+			])]))
 	# adding using single event
-	btns.append(html.Div(html.Button('5f')))
-	return btns
+	tail.append(html.Div(html.Button('5f')))
+	return tail
 
 @app.callback(Output('main-plot','children'),
 [Input('none','children')])
 def insert_flight(flight):
-	btns=[]
+	flight=[]
 	time_btn_classes = 'timebtn'
 	begin=1
 	for date_hour in date_list:
 		init_time = begin
-		end_time = 60 + init_time
-		btns.append(html.Button(str(date_hour),className=time_btn_classes,
+		end_time = 30 + init_time
+		flight.append(html.Button(str(date_hour),className=time_btn_classes,
 					style={'grid-column-start':str(init_time),'grid-column-end':str(end_time),
 							'grid-row-start':'1'}))
 		begin = end_time
 	# using single call events like button click	
-	btns.append(html.Button('new flight',className='h-8 bg-green-400 border border-blue-700 rounded',
+	flight.append(html.Label('new flight',className='flight',
 		style={'grid-column-start':'7','grid-column-end':'65', 'grid-row-start':'3'}))
-	btns.append(html.Button('new flight',className='h-8 bg-green-400 border border-blue-700 rounded',
+	flight.append(html.Button('new flight',className='flight',
 		style={'grid-column-start':'50','grid-column-end':'95', 'grid-row-start':'3'}))
-	btns.append(html.Button('new flight',className='h-8 bg-green-400 border border-blue-700 rounded',
+	flight.append(html.Button('new flight',className='flight',
 		style={'grid-column-start':'50','grid-column-end':'105', 'grid-row-start':'2'}))
-	return btns
+	return flight
 
 
 
