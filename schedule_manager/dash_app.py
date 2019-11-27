@@ -24,13 +24,18 @@ VALID_USERNAME_PASSWORD_PAIRS = [('james','12345'),('susan','12345')]
 
 #########################
 app = dash.Dash(__name__,assets_folder='static')
-
+app.config['suppress_callback_exceptions'] = True
 auth = dash_auth.BasicAuth(
     app,
     VALID_USERNAME_PASSWORD_PAIRS
 )
 
-app.layout = html.Div(id='main-bg',className='bg-gray-200',children=[
+app.layout = html.Div(id='main-bg',className='flex flex-col min-w-12 sm:min-w-full bg-gray-200',children=[
+	html.Button('open modal',id="myBtn"),
+	html.Div(id='first-Modal',className='modal',children=[
+		html.Div(className='modal-content')
+	]),
+	html.Div('print something',id='something'),
 	html.Div(id='none',children=[],style={'display': 'none'}),
 	html.Div(id='relative-parent',className='parent-grid rounded shadow-lg mx-1 bg-gray-500 mt-1 mb-2 border border-black h-full w-full',
 	children=[
@@ -55,9 +60,12 @@ def insert_equip(tail):
 			tail.append(html.Div(id='tail-'+ reg, children=[dcc.Checklist(id=reg,
 			options=[
 				{'label':reg,'value':reg}
-			])]))
+			]),
+			html.Button(html.I(className='fa fa-caret-right bg-black'),id=reg+'-tail-event',
+				className='float-right',n_clicks=0)]))
 	# adding using single event
 	tail.append(html.Div(html.Button('5f')))
+	#tail.append(html.I(className='fal fa-caret-right'))
 	return tail
 
 @app.callback(Output('main-plot','children'),
@@ -73,16 +81,27 @@ def insert_flight(flight):
 					style={'grid-column-start':str(init_time),'grid-column-end':str(end_time),
 							'grid-row-start':'1'}))
 		begin = end_time
-	# using single call events like button click	
-	flight.append(html.Label('new flight',className='flight',
-		style={'grid-column-start':'7','grid-column-end':'65', 'grid-row-start':'3'}))
+	# using single call events like button click
+	# THE DEFAULT ITEMS FOR A FLIGHT ARE:
+	flight.append(html.Div('div for stuff',className='flight',
+		style={'grid-column-start':'7','grid-column-end':'65', 'grid-row-start':'3'},n_clicks=0))
+	flight.append(html.Label('NBO',id='from-dep',className='label-from',
+		style={'grid-column-start':'7','grid-column-end':'18', 'grid-row-start':'3'},n_clicks=0))
+	flight.append(html.Label('MBA',id='to-dest',className='label-to',
+		style={'grid-column-start':'54','grid-column-end':'65', 'grid-row-start':'3'},n_clicks=0))
+	flight.append(html.Label('JAMES MUKUYA',id='cpt-',className='operating-capt',
+		style={'grid-column-start':'19','grid-column-end':'53', 'grid-row-start':'3'},n_clicks=0))
+	###################################################################################
 	flight.append(html.Button('new flight',className='flight',
 		style={'grid-column-start':'50','grid-column-end':'95', 'grid-row-start':'3'}))
 	flight.append(html.Button('new flight',className='flight',
 		style={'grid-column-start':'50','grid-column-end':'105', 'grid-row-start':'2'}))
 	return flight
 
-
+@app.callback(Output('something','children'),
+			[Input('myBtn','n_clicks')])
+def print_something(n_clicks):
+	return f'button clicked {n_clicks} times'
 
 
 
