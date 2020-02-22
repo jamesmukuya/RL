@@ -12,11 +12,8 @@ from dash.dependencies import Output, Input
 rows=['a','b','c']
 date_range = pd.date_range(start='2019-11-01',end='2019-11-30',freq='H')
 date_list=date_range.tolist() #methods available incl. .time()
-df = pd.DataFrame(index=rows,columns=date_range)
+#df = pd.DataFrame(index=rows,columns=date_range)
 	#for i in range date_range, if i%60==0: display the hours
-
-date_list=date_range.tolist() #methods available incl. .time()
-
 
 VALID_USERNAME_PASSWORD_PAIRS = [('james','12345'),('susan','12345')]
 # table page size
@@ -44,6 +41,17 @@ app.layout = html.Div(id='main-bg',className='flex flex-col min-w-12 sm:min-w-fu
 	]),
 	
 ])
+"""
+<link href="{{ url_for('static', filename='css/fontawesome/css/fontawesome.min.css') }}"
+		rel="stylesheet" type="text/css">
+{{url_for('static', filename='flights/new_flight.html')}}
+------------------------------------------------------------------------------
+for the form
+
+"""
+
+
+
 
 #print(df.index)
 # plot the schedule from database on loading
@@ -101,7 +109,7 @@ def insert_flight(flight):
 @app.callback(Output('something','children'),
 			[Input('myBtn','n_clicks')])
 def print_something(n_clicks):
-	return f'button clicked {n_clicks} times'
+	return f'button is clicked {n_clicks} times'
 
 
 

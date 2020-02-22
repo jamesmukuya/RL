@@ -166,6 +166,7 @@ for row_num in desc_row_number:
 #print(soln_flt_details[:5])
 # create columns for recommended and suggested costs
 sched_df['recomm_cost'] = np.nan
+
 # for all row numbers in desc and asc row number, insert the value of the min to the row of max
 x = list(zip(desc_row_number,asc_row_number))
 #print(x[1][0])
@@ -181,12 +182,14 @@ for index in range(len(x)):
 
 # create col with the best value
 sched_df['sugg_cost'] = sched_df['_prev_cost'].values + sched_df['recomm_cost'].values
+#gain = 
+sched_df['gain(+/-)'] = sched_df['CURR_FLT_COST'].to_numpy() - sched_df['recomm_cost'].to_numpy()
 
 #INITIAL FLT NO AND ROUTE
 sched_df['RTE'] = sched_df['DEP']+'-'+sched_df['ARR']
 sched_df['PROP_RTE'] = soln_flt_rte
 sched_df['PROP_FLT_NO'] = soln_flt_num
-sched_df = sched_df.round({'PREV_COST':2,'CURR_FLT_COST':2,'recomm_cost':2})
+sched_df = sched_df.round({'PREV_COST':2,'CURR_FLT_COST':2,'recomm_cost':2,'gain(+/-)':2})
 
 #FULL SCHEDULE
 SCHED_COLS = ['STD_DATE', 'ST_TIME','FLT_NO','DEP', 'ARR','ACT_J','ACT_Y','TAIL', 'TYPE']
@@ -197,11 +200,12 @@ COST_COLS = ['STD_DATETIME', 'FLT_NO','ACT_J','ACT_Y', 'TAIL', 'PREV_COST','CURR
 sched_df_nbo = sched_df.loc[sched_df['DEP'].to_numpy()=='NBO']
 cost_df = sched_df_nbo[COST_COLS].sort_values('PREV_COST',ascending=False)
 
+#sched_df['gain(+/-)'] = np.nan
 # SOLN PLAN DF
 # check on dep times next
-SOLN_COLS = ['TAIL','RTE','STD_DATETIME','PROP_FLT_NO', 'PROP_RTE','CURR_FLT_COST','recomm_cost']
+SOLN_COLS = ['TAIL','RTE','STD_DATETIME','PROP_FLT_NO', 'PROP_RTE','CURR_FLT_COST','recomm_cost','gain(+/-)']
 soln_df = sched_df_nbo[SOLN_COLS]
-soln_df.round({'CURR_FLT_COST':2,'recomm_cost':2})
+soln_df.round({'CURR_FLT_COST':2,'recomm_cost':2,'gain(+/-)':2})
 soln_df = soln_df.loc[soln_df['PROP_RTE'].str.startswith('NBO')]
 
 x_data = [i for i in pd.unique(sched_df_nbo['FLT_NO'].to_numpy())]
@@ -421,7 +425,7 @@ app.layout = html.Div([
 def update_output_div(something):
 	# you can put anything in the fxn. no need of providing pos arg to it
 	# for now we place a hidden empty div without any children in order to have it in the callback
-	input_value='nothing'
+	input_value=''
 
 	return 'You\'ve entered "{}"'.format(input_value)
 
